@@ -62,16 +62,6 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-# hyperparameters
-max_iters = 1
-eval_interval = 100
-learning_rate = 1e-3
-eval_iters = 200
-n_embd = 64
-n_head = 4
-n_layer = 4
-dropout = 0.2
-
 class Head(nn.Module):
     """ self- attention head, performing the scaled dot product attention,
     with three linear layers one each for key, query and value """
@@ -85,15 +75,17 @@ class Head(nn.Module):
 
     def forward(self, x):
         B,T,C = x.shape # (Batch, Time, Channel)
-        k = self.key(x)   # (B,T,C)
-        q = self.query(x) # (B,T,C)
+        k = self.key(x)   # (B,T,C) will contain info about what it has
+        q = self.query(x) # (B,T,C) info about what it wants
         # compute attention scores ("affinities")
-        wei = q @ k.transpose(-2,-1) * C**-0.5 # (B, T, C) @ (B, C, T) -> (B, T, T)
+        wei = q @ k.transpose(-2,-1) * C**-0.5 # (B, T, C) @ (B, C, T) -> (B, T, T) with key and query learn what information to get from where
+        # when at the character c we dont want to look ahead, so setrting all their probabilities to 0 with the help of softmax
         wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf')) # (B, T, T)
         wei = F.softmax(wei, dim=-1) # (B, T, T)
+
         wei = self.dropout(wei)
         # perform the weighted aggregation of the values
-        v = self.value(x) # (B,T,C)
+        v = self.value(x) # (B,T,C) info about what it will give
         out = wei @ v # (B, T, T) @ (B, T, C) -> (B, T, C)
         return out
 
@@ -143,8 +135,8 @@ class Block(nn.Module):
         x = x + self.ffwd(self.ln2(x))
         return x
 
-# super simple bigram model
-class BigramLanguageModel(nn.Module):
+# simple model
+class LanguageModel(nn.Module):
 
     def __init__(self):
         super().__init__()
@@ -173,7 +165,9 @@ class BigramLanguageModel(nn.Module):
             loss = F.cross_entropy(logits, targets)
         return logits, loss
 
-    def generate(self, idx, max_new_tokens): # idx is (B, T)
+    def generate(self, contextword, max_new_tokens):
+        idx = torch.tensor(encode(contextword), device=device).unsqueeze(0)
+        # idx is (B, T)
         for _ in range(max_new_tokens):
             idx_cond = idx[:, -block_size:] # crop idx to the last block_size (T) tokens
             logits, loss = self(idx_cond) # get the predictions
@@ -181,7 +175,7 @@ class BigramLanguageModel(nn.Module):
             probs = F.softmax(logits, dim=-1) # (B, C), apply softmax to get probabilities
             idx_next = torch.multinomial(probs, num_samples=1) # (B, 1) sample from the distribution
             idx = torch.cat((idx, idx_next), dim=1) # (B, T+1), add it and send it again and send
-        return idx
+        return decode(idx[0].tolist())
 
 @torch.no_grad()
 def estimate_loss():
@@ -197,16 +191,23 @@ def estimate_loss():
     model.train()
     return out
 
-model = BigramLanguageModel()
-m = model.to(device)
-# print the number of parameters in the model
-print(sum(p.numel() for p in m.parameters())/1e6, 'M parameters')
+# hyperparameters
+max_iters = 2
+eval_interval = 100
+learning_rate = 1e-3
+eval_iters = 200
+n_embd = 64
+n_head = 4
+n_layer = 4
+dropout = 0.2
 
+model = LanguageModel()
+m = model.to(device)
+print(sum(p.numel() for p in m.parameters()))
 # create a PyTorch optimizer
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
 for iter in range(max_iters):
-
     # every once in a while evaluate the loss on train and val sets
     if iter % eval_interval == 0 or iter == max_iters - 1:
         losses = estimate_loss()
@@ -215,16 +216,18 @@ for iter in range(max_iters):
     # sample a batch of data
     xb, yb = get_batch('train')
 
-    # evaluate the loss
-    print(xb.shape)
+    # make the forward and the backward pass and evaluate the loss
     logits, loss = model(xb, yb)
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
     optimizer.step()
 
-# generate from the model
-context = torch.zeros((1, 1), dtype=torch.long, device=device)
-print(decode(m.generate(context, max_new_tokens=2000)[0].tolist()))
+# The the model predicted every next character with same confidence the loss would a little better, improving that is the next step
+import math
+print("Good starting loss is", -math.log(1.0/vocab_size), "currently the model has a loss of", losses )
 
-"""### The model is creating complete nonsense, but that is okay as it is not trained yet, first lets fix how the model is initialized, the loss of 4.3756 is too big, so the model is getting unlucky in the initialization, we expect the model to start around the loss of _________ .To reduce the loss, decrease the range of the enbeddings or include batch normalization"""
+contextword = "Hello there"
+print(m.generate(contextword, max_new_tokens=2000))
+
+"""### The model is creating complete nonsense, but that is okay as it is not trained yet, first lets fix how the model is initialized, currently the loss at the starting is around 4.4 which is too big, it means the model is getting unlucky in the initialization, in a good model initialization the the model should not predict wrong things with so much confidence. To reduce the loss, decrease the range of the enbeddings or include batch normalization."""
 
