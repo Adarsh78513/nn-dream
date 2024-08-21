@@ -191,8 +191,9 @@ def estimate_loss():
     model.train()
     return out
 
+import matplotlib.pyplot as plt
 # hyperparameters
-max_iters = 2
+max_iters = 5000
 eval_interval = 100
 learning_rate = 1e-3
 eval_iters = 200
@@ -207,11 +208,23 @@ print(sum(p.numel() for p in m.parameters()))
 # create a PyTorch optimizer
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
+# Variables to store loss values and iterations
+train_losses = []
+val_losses = []
+iterations = []
+
 for iter in range(max_iters):
-    # every once in a while evaluate the loss on train and val sets
     if iter % eval_interval == 0 or iter == max_iters - 1:
         losses = estimate_loss()
-        print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+        train_loss = losses['train']
+        val_loss = losses['val']
+
+        # Store losses and current iteration
+        train_losses.append(train_loss)
+        val_losses.append(val_loss)
+        iterations.append(iter)
+
+        print(f"step {iter}: train loss {train_loss:.4f}, val loss {val_loss:.4f}")
 
     # sample a batch of data
     xb, yb = get_batch('train')
@@ -222,6 +235,19 @@ for iter in range(max_iters):
     loss.backward()
     optimizer.step()
 
+# Plotting the losses
+plt.figure(figsize=(10, 6))
+plt.plot(iterations, train_losses, label='Train Loss')
+plt.plot(iterations, val_losses, label='Validation Loss')
+plt.xlabel('Iteration')
+plt.ylabel('Loss')
+plt.title('Training and Validation Loss vs. Iterations')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+"""### The models initialization needs to be fixed, currently the loss at the starting is around 4.4 which is too big, it means the model is getting unlucky in the initialization, in a good model initialization the the model should not predict wrong things with so much confidence. To reduce the loss, decrease the range of the enbeddings or include batch normalization. For the first few iterations the model is trying to just unlearn because of the very confident wrong embeddings."""
+
 # The the model predicted every next character with same confidence the loss would a little better, improving that is the next step
 import math
 print("Good starting loss is", -math.log(1.0/vocab_size), "currently the model has a loss of", losses )
@@ -229,5 +255,5 @@ print("Good starting loss is", -math.log(1.0/vocab_size), "currently the model h
 contextword = "Hello there"
 print(m.generate(contextword, max_new_tokens=2000))
 
-"""### The model is creating complete nonsense, but that is okay as it is not trained yet, first lets fix how the model is initialized, currently the loss at the starting is around 4.4 which is too big, it means the model is getting unlucky in the initialization, in a good model initialization the the model should not predict wrong things with so much confidence. To reduce the loss, decrease the range of the enbeddings or include batch normalization."""
+# The data is not that gibrish anymore
 
