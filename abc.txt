@@ -1,0 +1,107 @@
+To enhance the **Tokenization** section by incorporating **Byte Pair Encoding (BPE)** and providing detailed instructions for training, here's the revised version:
+
+---
+
+## Tokenization
+
+In this repository, tokenization is performed using a **Byte Pair Encoding (BPE)** approach, which is an advanced subword tokenization technique that balances between character-level and word-level tokenization. This method improves the efficiency and flexibility of the model, allowing it to handle both frequent and rare sequences of characters effectively.
+
+### Key Concepts of Byte Pair Encoding (BPE)
+
+1. **Subword Units**: Instead of tokenizing at a pure character level (which leads to long sequences) or word level (which suffers from rare or unknown words), BPE tokenizes text into subwords. These subwords capture both common words and meaningful word parts, allowing the model to generalize better across languages and vocabularies.
+   
+2. **Token Vocabulary**: The tokenizer starts with a base vocabulary consisting of all unique characters. During the tokenization process, it iteratively merges the most frequent pairs of characters, forming subwords until an optimal vocabulary size is reached.
+
+3. **BPE Encoding and Decoding**:
+   - **Encoding**: Text is encoded by breaking it into subword units, using the learned vocabulary.
+   - **Decoding**: The subword units are stitched back together to reconstruct the original text.
+   
+This approach allows us to reduce the size of the model’s context window, leading to faster training and more efficient inference.
+
+### BPE Tokenizer Implementation
+
+In the `tokenization.py` file, the BPE-based tokenization is implemented as follows:
+
+1. **Character Set Extraction**: Extracts the initial set of unique characters from the dataset.
+2. **Pair Merging**: Iteratively merges the most frequent character pairs to form subwords.
+3. **Encoding**: Converts text into a list of integer IDs representing subwords.
+4. **Decoding**: Converts a list of integer IDs back into human-readable text.
+
+Here’s an example of using the tokenizer:
+
+```python
+# Encode a sentence into subwords using BPE
+encoded_text = encode_bpe("To be, or not to be.")
+print(encoded_text)  # Output: [10, 15, 2, 5, 1, 21, 33, ...]
+
+# Decode the encoded subwords back into text
+decoded_text = decode_bpe(encoded_text)
+print(decoded_text)  # Output: "To be, or not to be."
+```
+
+### How to Train the Tokenizer
+
+Training the tokenizer involves creating an optimal vocabulary of subwords using BPE. Here's how you can train it step by step:
+
+1. **Preprocess the Data**: Load the dataset (e.g., Shakespeare’s works) and break it down into characters and words.
+   
+   ```python
+   file = open("input.txt", 'r')
+   text = file.read()
+   print(text[:500])  # Show the first 500 characters of the dataset
+   ```
+
+2. **Initialize Vocabulary**: Extract the character set from the dataset and initialize the base vocabulary.
+
+   ```python
+   chars = sorted(list(set(text)))
+   vocab_size = len(chars)  # Initial character-level vocabulary size
+   ```
+
+3. **Iterative Pair Merging**: Perform the BPE merging operations by repeatedly identifying the most frequent pair of tokens (initially characters) and merging them to form subwords.
+
+   ```python
+   def build_bpe_vocab(text, num_merges=1000):
+       # Build BPE vocab by merging the most frequent pairs
+       for _ in range(num_merges):
+           # Find and merge frequent pairs
+           merge_most_frequent_pair(text)
+   ```
+
+4. **Tokenize the Dataset**: After building the BPE vocabulary, encode the entire dataset into subword tokens.
+
+   ```python
+   encoded_text = encode_bpe(text)
+   data = torch.tensor(encoded_text)
+   ```
+
+5. **Training Parameters**: You can adjust the BPE vocabulary size by modifying the number of merges. A larger vocabulary typically improves efficiency but might increase the model’s complexity.
+
+### How BPE Tokenization Improves Model Performance
+
+- **Efficient Context Management**: By breaking down rare words into meaningful subwords, BPE reduces the number of tokens needed to represent each sequence, allowing the model to process longer context windows.
+- **Generalization**: The model can generalize better by recognizing parts of words (prefixes, suffixes) and recombining them for unseen words or phrases during training and inference.
+
+### Training the Tokenizer Command
+
+To train the tokenizer with BPE and tokenize the dataset:
+
+```python
+# Step 1: Download dataset
+!wget https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt
+
+# Step 2: Train the tokenizer using BPE
+build_bpe_vocab(text, num_merges=10000)  # You can adjust 'num_merges' as needed
+
+# Step 3: Encode text into tokens
+encoded_data = encode_bpe(text)
+
+# Step 4: Save the tokenized data
+torch.save(encoded_data, 'tokenized_data.pt')
+```
+
+This step trains the tokenizer on the dataset, creating an optimized vocabulary and preparing the data for the language model.
+
+--- 
+
+This revised section highlights the advanced nature of the tokenization process, explaining the benefits of BPE and how to train the tokenizer. By explaining how the BPE-based tokenizer is built and providing sample code for training, it makes it easier for users to understand its relevance and use it effectively in conjunction with the language model.

@@ -46,6 +46,7 @@ class Tokenizer:
             tokens = merge(tokens, pair, 256 + i)
             # print(tokens)
             self.merges[pair] = 256 + i
+            self.vocab[256 + i] = self.vocab[pair[0]] + self.vocab[pair[1]]
         # self.vocab = self._build_vocab()
 
     def encode(self, text):
