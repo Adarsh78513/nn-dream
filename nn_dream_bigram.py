@@ -193,7 +193,7 @@ def estimate_loss():
 
 import matplotlib.pyplot as plt
 # hyperparameters
-max_iters = 5000
+max_iters = 10000
 eval_interval = 100
 learning_rate = 1e-3
 eval_iters = 200
@@ -211,7 +211,6 @@ optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 # Variables to store loss values and iterations
 train_losses = []
 val_losses = []
-iterations = []
 
 for iter in range(max_iters):
     if iter % eval_interval == 0 or iter == max_iters - 1:
@@ -222,7 +221,6 @@ for iter in range(max_iters):
         # Store losses and current iteration
         train_losses.append(train_loss)
         val_losses.append(val_loss)
-        iterations.append(iter)
 
         print(f"step {iter}: train loss {train_loss:.4f}, val loss {val_loss:.4f}")
 
@@ -237,6 +235,7 @@ for iter in range(max_iters):
 
 # Plotting the losses
 plt.figure(figsize=(10, 6))
+iterations = [i * eval_interval for i in range(len(train_losses))]
 plt.plot(iterations, train_losses, label='Train Loss')
 plt.plot(iterations, val_losses, label='Validation Loss')
 plt.xlabel('Iteration')
@@ -256,4 +255,6 @@ contextword = "Hello there"
 print(m.generate(contextword, max_new_tokens=2000))
 
 # The data is not that gibrish anymore
+
+
 
