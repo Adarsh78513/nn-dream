@@ -1,3 +1,5 @@
+import unicodedata
+
 def byte_pair_counts(ids):
     byte_pair_counts={}
     """Count frequency of all consecutive symbol pairs in list ids, and return a dictionary of counts"""
@@ -22,11 +24,31 @@ def merge(ids, byte_pair, new_id):
             i += 1
     return new
 
+def replace_control_characters(s: str) -> str:
+    # we don't want to print control characters
+    # which distort the output (e.g. \n or much worse)
+    # https://stackoverflow.com/questions/4324790/removing-control-characters-from-a-string-in-python/19016117#19016117
+    # http://www.unicode.org/reports/tr44/#GC_Values_Table
+    chars = []
+    for ch in s:
+        if unicodedata.category(ch)[0] != "C":
+            chars.append(ch) # this character is ok
+        else:
+            chars.append(f"\\u{ord(ch):04x}") # escape
+    return "".join(chars)
+
+def render_token(t: bytes) -> str:
+    # pretty print a token, escaping control characters
+    s = t.decode('utf-8', errors='replace')
+    s = replace_control_characters(s)
+    return s
+
 class Tokenizer:
     """Base tokenizer class, this class should be inherited by other tokenizer classes, 
     using just like this it will just merge all byte pairs in the vocab with no special conditions"""
     def __init__(self):
-        self.merges = {}
+        self.merges = {} # dict (p0, p1) -> c
+        self.pattern = ""
         self.special_tokens = {}
         self.vocab = self._build_vocab()
         
@@ -73,3 +95,33 @@ class Tokenizer:
         for special, idx in self.special_tokens.items():
             vocab[idx] = special
         return vocab
+    
+    def save(self, file_name):
+        """
+        Saving the model and the vocabulary
+        """
+        save_location = "tokenizer_models/"
+        model_file = save_location + file_name + ".model"
+        vocab_fille = save_location + file_name + ".vocab"
+        with open(model_file, 'w') as f:
+            f.write("tokenizer.v1")
+            f.write(f"{self.pattern}\n")
+            f.write(f"{len(self.special_tokens)}\n")
+            for special, idx in self.special_tokens.items():
+                f.write(f"{special} {idx}\n")
+            for idx1, idx2 in self.merges:
+                f.write(f"{idx1} {idx2}\n")
+        
+        inverted_merges = {idx: pair for pair, idx in self.merges.items()}
+        with open(vocab_fille, 'w', encoding="utf-8") as f:
+            for idx, token in self.vocab.items():
+                s = render_token(token)
+                if idx in inverted_merges:
+                    # if this token has children, render it nicely as a merge
+                    idx0, idx1 = inverted_merges[idx]
+                    s0 = render_token(self.vocab[idx0])
+                    s1 = render_token(self.vocab[idx1])
+                    f.write(f"[{s0}][{s1}] -> [{s}] {idx}\n")
+                else:
+                    f.write(f"[{s}] {idx}\n")
+                

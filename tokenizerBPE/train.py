@@ -12,3 +12,4 @@ t.train(text, vocab_size)
 print("encoded length", len(t.encode("hello thein")))
 checkString = "Hello there"
 print("Encoder decoder working properly:", t.decode(t.encode(checkString)) == checkString)
+t.save("internetchunk")
